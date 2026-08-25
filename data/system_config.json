@@ -1,0 +1,31 @@
+{
+  "system_name": "NetSage AI",
+  "version": "1.0.0",
+  "environment": "Cisco Packet Tracer / Cisco IOS Enterprise",
+  "deterministic_threshold": 0.85,
+  "confidence_defaults": {
+    "deterministic_match": 0.98,
+    "heuristic_match": 0.88,
+    "llm_inference": 0.92
+  },
+  "benchmark_agreement_rate": 76.6,
+  "supported_osi_layers": [
+    "Layer 1 - Physical",
+    "Layer 2 - Data Link",
+    "Layer 3 - Network",
+    "Layer 4 - Transport",
+    "Layer 7 - Application"
+  ],
+  "severity_levels": [
+    "Critical",
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "hitl_config": {
+    "require_operator_signoff": true,
+    "log_operator_overrides": true,
+    "allow_cli_editing": true,
+    "audit_log_file": "data/audit_log.csv"
+  }
+}
