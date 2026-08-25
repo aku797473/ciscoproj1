@@ -1,0 +1,389 @@
+"case_id","symptom","topology_note","concept_tag","severity","show_outputs","expected_fault"
+"NET-001","PC1 cannot reach Server1 in VLAN 30","Router-on-a-Stick with Switch-01 and Router-01","Inter-VLAN Routing","High","Router01# show ip interface brief
+Interface                  IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0         unassigned      YES unset  up                    up
+GigabitEthernet0/0.10      192.168.10.1    YES manual up                    up
+GigabitEthernet0/0.20      192.168.20.1    YES manual up                    up
+GigabitEthernet0/0.30      192.168.30.1    YES manual administratively down line protocol is down
+GigabitEthernet0/1         10.0.0.1        YES manual up                    up
+
+Router01# show running-config interface GigabitEthernet0/0.30
+Building configuration...
+interface GigabitEthernet0/0.30
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+ shutdown
+!","GigabitEthernet0/0.30 sub-interface is administratively down"
+"NET-002","OSPF adjacency not forming between R1 and R2 over GigabitEthernet0/1","Point-to-point link between R1 and R2 across subnet 10.0.12.0/30","OSPF","High","R1# show ip ospf neighbor
+
+R1# show ip ospf interface GigabitEthernet0/1
+GigabitEthernet0/1 is up, line protocol is up
+  Internet Address 10.0.12.1/30, Area 0, Attached via Interface Enable
+  Process ID 1, Router ID 1.1.1.1, Network Type BROADCAST, Cost: 1
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+
+R2# show ip ospf interface GigabitEthernet0/1
+GigabitEthernet0/1 is up, line protocol is up
+  Internet Address 10.0.12.2/30, Area 1, Attached via Interface Enable
+  Process ID 1, Router ID 2.2.2.2, Network Type BROADCAST, Cost: 1
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+
+R1# show log
+*Mar 1 00:12:34.112: %OSPF-4-ERRRCV: Received packet with invalid Area ID 0.0.0.1 from 10.0.12.2 on GigabitEthernet0/1","OSPF Area ID mismatch between R1 (Area 0) and R2 (Area 1)"
+"NET-003","Only the first LAN host can access the Internet; other LAN hosts fail","Branch edge router performing PAT for LAN 192.168.1.0/24 to ISP interface Gi0/0","NAT/PAT","Critical","EdgeRouter# show ip nat translations
+Pro Inside global      Inside local       Outside local      Outside global
+--- 203.0.113.2        192.168.1.10       ---                ---
+
+EdgeRouter# show run | include ip nat
+ip nat inside source list 1 interface GigabitEthernet0/0
+interface GigabitEthernet0/0
+ ip nat outside
+interface GigabitEthernet0/1
+ ip nat inside
+
+EdgeRouter# show access-lists 1
+Standard IP access list 1
+    10 permit 192.168.1.0, wildcard bits 0.0.0.255 (4 matches)","Missing 'overload' keyword on 'ip nat inside source list' causing dynamic 1-to-1 NAT exhaustion instead of PAT"
+"NET-004","Branch users cannot access external Web servers (HTTP/HTTPS) but DNS works","Enterprise border firewall/router with outbound Extended ACL","ACL","High","Gateway# show access-lists 101
+Extended IP access list 101
+    10 permit udp 192.168.0.0 0.0.255.255 any eq domain (142 matches)
+    20 permit icmp 192.168.0.0 0.0.255.255 any (25 matches)
+    30 deny ip any any log (890 matches)
+
+Gateway# show run interface GigabitEthernet0/0
+interface GigabitEthernet0/0
+ description WAN Interface
+ ip address 198.51.100.1 255.255.255.252
+ ip access-group 101 out","Extended ACL 101 missing permit rules for TCP port 80 (HTTP) and port 443 (HTTPS)"
+"NET-005","Sales PC in VLAN 20 cannot communicate across Switch-A and Switch-B","Distribution trunk link between Core-SW1 and Dist-SW2","VLAN/Trunking","Medium","Core-SW1# show interfaces trunk
+Port        Mode             Encapsulation  Status        Native vlan
+Fa0/24      on               802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/24      10,30,40
+
+Port        Vlans allowed and active in management domain
+Fa0/24      10,30,40
+
+Dist-SW2# show interfaces trunk
+Port        Mode             Encapsulation  Status        Native vlan
+Fa0/24      on               802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/24      1-4094","VLAN 20 is not included in switchport trunk allowed vlan list on Core-SW1 Fa0/24"
+"NET-006","Routing protocol fails to establish and hosts on subnet cannot reach gateway","Inter-router link between HQ-RTR and Branch-RTR","Subnetting/IP","High","HQ-RTR# show ip interface GigabitEthernet0/0/1
+GigabitEthernet0/0/1 is up, line protocol is up
+  Internet address is 172.16.50.1/25
+  Broadcast address is 172.16.50.127
+  Address determined by setup command
+  MTU is 1500 bytes
+
+Branch-RTR# show ip interface GigabitEthernet0/0/1
+GigabitEthernet0/0/1 is up, line protocol is up
+  Internet address is 172.16.50.130/25
+  Broadcast address is 172.16.50.255
+  Address determined by setup command
+  MTU is 1500 bytes","Subnet mask /25 creates two separate subnets: HQ (172.16.50.1 in .0/25) cannot communicate with Branch (172.16.50.130 in .128/25)"
+"NET-007","Severe packet loss and degraded throughput between Switch-1 and Switch-2","Uplink FastEthernet connection between access and distribution switches","Physical/Data Link","Medium","SW1# show interfaces FastEthernet0/1
+FastEthernet0/1 is up, line protocol is up (connected)
+  Hardware is Fast Ethernet, address is 000c.85df.1101 (bia 000c.85df.1101)
+  Half-duplex, 100Mb/s, media type is 100BaseTX
+  58231 input errors, 14212 CRC, 43901 frame, 0 overrun, 0 ignored
+  89412 late collision, 1204 deferred, 0 lost carrier
+
+SW2# show interfaces FastEthernet0/1
+FastEthernet0/1 is up, line protocol is up (connected)
+  Full-duplex, 100Mb/s, media type is 100BaseTX
+  0 input errors, 0 CRC, 0 frame, 0 overrun, 0 ignored","Duplex mismatch: SW1 is hardcoded to Half-duplex while SW2 is Full-duplex causing collisions and packet drop"
+"NET-008","Traffic from VLAN 20 dropped at router sub-interface; no encapsulation recognized","Router sub-interface configured for accounting department","Inter-VLAN Routing","High","R1# show ip interface brief
+Interface                  IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0.10      192.168.10.1    YES manual up                    up
+GigabitEthernet0/0.20      192.168.20.1    YES manual up                    up
+
+R1# show run interface GigabitEthernet0/0.20
+Building configuration...
+interface GigabitEthernet0/0.20
+ ip address 192.168.20.1 255.255.255.0
+!
+R1# show run interface GigabitEthernet0/0.10
+Building configuration...
+interface GigabitEthernet0/0.10
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+!","Sub-interface GigabitEthernet0/0.20 is missing 'encapsulation dot1Q 20' command"
+"NET-009","CDP native VLAN mismatch warnings flooding console; traffic leaking between VLANs","Trunk link between SW-BuildingA and SW-BuildingB","VLAN/Trunking","Medium","SW-A# show log | include Native VLAN
+*Mar 1 02:14:02.321: %CDP-4-NATIVE_VLAN_MISMATCH: Native VLAN mismatch discovered on GigabitEthernet0/1 (99), with SW-B GigabitEthernet0/1 (1).
+
+SW-A# show interfaces GigabitEthernet0/1 switchport
+Name: Gi0/1
+Operational Mode: trunk
+Trunking Native Mode VLAN: 99 (VLAN0099)
+
+SW-B# show interfaces GigabitEthernet0/1 switchport
+Name: Gi0/1
+Operational Mode: trunk
+Trunking Native Mode VLAN: 1 (default)","Native VLAN mismatch: SW-A is configured with Native VLAN 99 while SW-B uses default Native VLAN 1"
+"NET-010","Switch port repeatedly cycling between Blocking and Forwarding / Spanning Tree loop","Redundant link between Access Switch 3 and Distribution Switch 1","STP","Critical","SW3# show spanning-tree vlan 10
+VLAN0010
+  Spanning tree enabled protocol ieee
+  Root ID    Priority    32778
+             Address     0001.9654.1200
+             Cost        19
+             Port        19 (FastEthernet0/19)
+  Bridge ID  Priority    32778  (priority 32768 sys-id-ext 10)
+             Address     0009.7c32.8800
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/19              Root BLK 19        128.19   P2p *ROOT_Inc
+Fa0/20              Altn BLK 19        128.20   P2p
+
+SW3# show log
+%SPANTREE-2-ROOTINCONS: Root Guard block on port Fa0/19 on VLAN0010","Root Guard inconsistency on port Fa0/19 triggered by superior BPDUs from unauthorized bridge"
+"NET-011","EtherChannel link aggregate between Core-1 and Core-2 remains in Down/Suspended state","2x 1Gbps bonded links on Port-Channel 1","EtherChannel","High","Core-1# show etherchannel summary
+Group  Port-channel  Protocol    Ports
+------+-------------+-----------+-----------------------------------------------
+1      Po1(SD)          LACP      Gi0/1(D)    Gi0/2(D)
+
+Core-1# show run interface GigabitEthernet0/1
+interface GigabitEthernet0/1
+ channel-group 1 mode on
+interface GigabitEthernet0/2
+ channel-group 1 mode on
+
+Core-2# show etherchannel summary
+Group  Port-channel  Protocol    Ports
+------+-------------+-----------+-----------------------------------------------
+1      Po1(SD)          LACP      Gi0/1(I)    Gi0/2(I)
+
+Core-2# show run interface GigabitEthernet0/1
+interface GigabitEthernet0/1
+ channel-group 1 mode active","EtherChannel mode mismatch: Core-1 uses unconditional 'mode on' while Core-2 uses LACP 'mode active'"
+"NET-012","New lab workstations fail to receive IP configuration automatically","Branch DHCP server on Cisco 2911 router","DHCP","High","DHCP-RTR# show ip dhcp pool
+Pool LAN_POOL :
+ Utilization mark (high/low)    : 100 / 0
+ Subnet size (total/usable)     : 254 / 250
+ Total addresses                : 254
+ Leased addresses               : 0
+ Pending addresses              : 0
+ Excluded addresses             : 4
+ Subnet prefix                  : 192.168.5.0/24
+
+DHCP-RTR# show run | section ip dhcp pool
+ip dhcp pool LAN_POOL
+   network 192.168.5.0 255.255.255.0
+   dns-server 8.8.8.8
+!","DHCP pool LAN_POOL is missing the 'default-router 192.168.5.1' parameter"
+"NET-013","Finance PC loses network access immediately after user plugged in personal laptop","Floor 2 Access Switch port Fa0/8","Port Security","High","SW-Floor2# show interfaces FastEthernet0/8 status
+Port      Name               Status       Vlan       Duplex  Speed Type
+Fa0/8     Finance-Desk       err-disabled 20           auto   auto 10/100BaseTX
+
+SW-Floor2# show port-security interface FastEthernet0/8
+Port Security              : Enabled
+Port Status                : Secure-shutdown
+Violation Mode             : Shutdown
+Maximum MAC Addresses      : 1
+Total MAC Addresses        : 1
+Configured MAC Addresses   : 0
+Sticky MAC Addresses       : 1
+Last Source Address:Vlan   : 0050.56be.89a1:20
+Security Violation Count   : 1","Port security violation triggered err-disable on Fa0/8 due to unauthorized second MAC address"
+"NET-014","OSPF neighbors stuck in EXSTART/EXCHANGE state; routing tables not exchanged","Gigabit link between DataCenter-R1 and Core-R2","OSPF","High","DC-R1# show ip ospf neighbor
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+2.2.2.2           1   EXSTART/DR      00:00:34    10.255.0.2      GigabitEthernet0/0
+
+DC-R1# show interfaces GigabitEthernet0/0 | include MTU
+  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec
+
+Core-R2# show interfaces GigabitEthernet0/0 | include MTU
+  MTU 1400 bytes, BW 1000000 Kbit/sec, DLY 10 usec
+
+DC-R1# show log
+%OSPF-5-ADJCHG: Process 1, Nbr 2.2.2.2 on GigabitEthernet0/0 from LOADING to EXSTART","OSPF neighbor stuck in EXSTART state due to MTU size mismatch (1500 bytes vs 1400 bytes)"
+"NET-015","Branch router cannot forward any internet-bound packets to default gateway","Branch Edge Router static default routing","Static Routing","Critical","Branch-GW# show ip route
+Gateway of last resort is 198.51.100.254 to network 0.0.0.0
+
+S*    0.0.0.0/0 [1/0] via 198.51.100.254
+C     198.51.100.0/30 is directly connected, GigabitEthernet0/0
+      198.51.100.1/32 is subnetted, GigabitEthernet0/0
+
+Branch-GW# show arp
+Protocol  Address          Age (min)  Hardware Addr   Type   Interface
+Internet  198.51.100.1            -   0001.4285.a101  ARPA   GigabitEthernet0/0
+Internet  198.51.100.254          0   Incomplete      ARPA   GigabitEthernet0/0","Static default route next-hop 198.51.100.254 is outside the directly connected /30 subnet (198.51.100.0 - 198.51.100.3)"
+"NET-016","R1 and R3 fail to form OSPF adjacency over link GigabitEthernet0/2","HQ Router R1 with transit link to Router R3","OSPF","High","R1# show ip ospf neighbor
+
+R1# show ip ospf interface GigabitEthernet0/2
+GigabitEthernet0/2 is up, line protocol is up
+  Internet Address 10.0.23.1/30, Area 0, Attached via Interface Enable
+  Process ID 1, Router ID 1.1.1.1, Network Type BROADCAST, Cost: 1
+  No Hellos (Passive interface)
+
+R1# show running-config | section router ospf
+router ospf 1
+ router-id 1.1.1.1
+ passive-interface GigabitEthernet0/2
+ network 10.0.23.0 0.0.0.3 area 0","GigabitEthernet0/2 is erroneously configured as passive-interface, suppressing OSPF hello packets"
+"NET-017","OSPF process advertising wrong subnets; adjacent routes missing from routing table","OSPF process configuration on WAN Gateway","OSPF","High","WAN-GW# show running-config | section router ospf
+router ospf 10
+ router-id 10.10.10.1
+ network 10.1.10.0 255.255.255.0 area 0
+ network 10.1.20.0 255.255.255.0 area 0
+
+WAN-GW# show ip ospf interface brief
+Interface    PID   Area            IP Address/Mask    Cost  State Nbrs F/C
+Lo0          10    0               10.10.10.1/32      1     LOOP  0/0","Inverted wildcard mask in OSPF network statement (255.255.255.0 used instead of 0.0.0.255)"
+"NET-018","EIGRP neighbor relationship fails to establish between Site-A and Site-B","Dual-router campus backbone running EIGRP","EIGRP","High","SiteA-R1# show ip eigrp neighbors
+EIGRP-IPv4 Neighbors for AS(100)
+
+SiteA-R1# show running-config | section router eigrp
+router eigrp 100
+ network 10.100.1.0 0.0.0.3
+ no auto-summary
+
+SiteB-R2# show running-config | section router eigrp
+router eigrp 200
+ network 10.100.1.0 0.0.0.3
+ no auto-summary
+
+SiteA-R1# show log
+%DUAL-5-NBRCHANGE: IP-EIGRP(0) 100: Neighbor 10.100.1.2 is down: wrong AS","EIGRP Autonomous System (AS) number mismatch: SiteA is running AS 100 while SiteB is running AS 200"
+"NET-019","VLANs created on Primary Switch are not propagated to Secondary Access Switches","Multi-switch VTP domain in campus network","VLAN/Trunking","Medium","SW-Core# show vtp status
+VTP Version                     : 2
+Configuration Revision          : 8
+Maximum VLANs supported locally : 255
+Number of existing VLANs        : 7
+VTP Operating Mode              : Server
+VTP Domain Name                 : CORP_CAMPUS
+
+SW-Access# show vtp status
+VTP Version                     : 2
+Configuration Revision          : 0
+Maximum VLANs supported locally : 255
+Number of existing VLANs        : 5
+VTP Operating Mode              : Client
+VTP Domain Name                 : BRANCH_OFFICE","VTP domain name mismatch between Core (CORP_CAMPUS) and Access (BRANCH_OFFICE)"
+"NET-020","Standby router does not take over when Primary router priority is restored; VIP conflict","Dual Core Switches running HSRP for default gateway redundancy","HSRP","Medium","Core1# show standby brief
+                     P indicates configured to preempt.
+                     |
+Interface   Grp  Pri P State   Active          Standby         Virtual IP
+Vlan10      10   110   Active  local           192.168.10.3    192.168.10.1
+
+Core2# show standby brief
+                     P indicates configured to preempt.
+                     |
+Interface   Grp  Pri P State   Active          Standby         Virtual IP
+Vlan10      10   100   Active  local           192.168.10.2    192.168.10.254","HSRP Virtual IP address mismatch (192.168.10.1 on Core1 vs 192.168.10.254 on Core2) causing both to act as Active"
+"NET-021","LAN workstations cannot reach local file server after ACL applied to LAN gateway","Building LAN interface Gi0/0 with standard access list","ACL","High","Gateway# show ip access-list 10
+Standard IP access list 10
+    10 permit 192.168.100.0, wildcard bits 0.0.0.255 (0 matches)
+    20 deny any (1240 matches)
+
+Gateway# show run interface GigabitEthernet0/0
+interface GigabitEthernet0/0
+ ip address 192.168.100.1 255.255.255.0
+ ip access-group 10 in","Standard ACL 10 applied inbound on LAN interface matching on source IP filters internal host traffic erroneously"
+"NET-022","Users intermittently get Connection Timed Out when browsing external sites during peak hours","Edge firewall with dynamic NAT pool","NAT/PAT","High","EdgeFW# show ip nat statistics
+Total active translations: 2 (0 static, 2 dynamic; 0 extended)
+Outside interfaces: GigabitEthernet0/0
+Inside interfaces: GigabitEthernet0/1
+Hits: 1205  Misses: 489
+Expired translations: 1203
+Dynamic mappings:
+-- Inside Source
+ [Id: 1] access-list 1 pool CORP_POOL refcount 2
+  pool CORP_POOL: netmask 255.255.255.252
+	start 203.0.113.10 end 203.0.113.11
+	type generic, total addresses 2, allocated 2 (100%), misses 489","Dynamic NAT pool CORP_POOL is exhausted (100% allocated, 2/2 addresses) without PAT overload configuration"
+"NET-023","Client PCs on Subnet 192.168.20.0/24 fail to obtain IP from Central DHCP Server at 10.10.10.50","Multi-subnet campus with centralized DHCP Server behind Router","DHCP","High","Router# show ip dhcp snooping
+DHCP snooping is enabled
+
+Router# show run interface GigabitEthernet0/0.20
+Building configuration...
+interface GigabitEthernet0/0.20
+ encapsulation dot1Q 20
+ ip address 192.168.20.1 255.255.255.0
+!
+Router# show ip interface GigabitEthernet0/0.20 | include Helper
+  Helper address is not set","Missing 'ip helper-address 10.10.10.50' on router sub-interface GigabitEthernet0/0.20 to relay DHCP broadcast requests"
+"NET-024","Hosts obtain IP address via DHCP but domain names fail to resolve to IP addresses","Corporate Branch Office DHCP Server on Router","DHCP","Medium","BranchRTR# show run | section ip dhcp pool
+ip dhcp pool OFFICE_POOL
+   network 10.20.30.0 255.255.255.0
+   default-router 10.20.30.1
+   dns-server 192.0.2.123
+
+BranchRTR# show ip route 192.0.2.123
+% Network not in table
+
+BranchRTR# show hosts
+Default domain is corp.local
+Name servers are 10.20.1.5, 10.20.1.6","DHCP scope contains unreachable invalid DNS server IP (192.0.2.123) instead of valid enterprise DNS (10.20.1.5)"
+"NET-025","IPv6 hosts fail to configure global unicast addresses via SLAAC","IPv6 dual-stack campus router interface","IPv6/SLAAC","High","IPv6-RTR# show ipv6 interface GigabitEthernet0/0
+GigabitEthernet0/0 is up, line protocol is up
+  IPv6 is enabled, link-local address is FE80::1
+  Global unicast address(es):
+    2001:DB8:ACAD:1::1, subnet is 2001:DB8:ACAD:1::/64
+  ND DAD is enabled, number of DAD attempts 1
+  ND router advertisements are suppressed
+  ND router advertisements sent: 0","IPv6 Router Advertisements (RA) are suppressed on interface ('ipv6 nd ra suppress'), blocking SLAAC autoconfiguration"
+"NET-026","eBGP session between ISP router and Enterprise AS 65001 fails to reach ESTABLISHED state","Border BGP peering with ISP","BGP","High","ISP-RTR# show ip bgp summary
+BGP router identifier 203.0.113.1, local AS number 65000
+Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+198.51.100.2    4 65002       0       0        1    0    0 never    Active
+
+Enterprise-GW# show running-config | section router bgp
+router bgp 65001
+ bgp log-neighbor-changes
+ neighbor 198.51.100.1 remote-as 65000
+
+ISP-RTR# show log
+%BGP-4-REMOTE_AS_MISMATCH: Received OPEN from 198.51.100.2 with remote-as 65001, expected 65002","eBGP Remote AS mismatch: ISP configured neighbor with remote-as 65002 instead of 65001"
+"NET-027","Network Management Station (NMS) cannot build topology map; neighbor discovery failing","Core switch interconnect link Fa0/24","Management/CDP","Low","SW-Core# show cdp neighbors
+Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge
+                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone
+Device ID    Local Intrfce   Holdtme    Capability   Platform    Port ID
+
+SW-Core# show cdp
+Global CDP information:
+    Sending CDP packets every 60 seconds
+    Sending a holdtime value of 180 seconds
+
+SW-Core# show run interface FastEthernet0/24
+interface FastEthernet0/24
+ switchport mode trunk
+ no cdp enable","Cisco Discovery Protocol (CDP) is disabled on interface FastEthernet0/24 ('no cdp enable')"
+"NET-028","Router logs show incorrect timestamps and NTP status shows unsynchronized","HQ Gateway NTP synchronization with Central Time Server","NTP/System","Low","HQ-GW# show ntp status
+Clock is unsynchronized, stratum 16, no reference clock
+nominal freq is 250.0000 Hz, actual freq is 250.0000 Hz, precision is 2**18
+
+HQ-GW# show ntp associations
+      address         ref clock     st   when poll reach  delay  offset   disp
+~10.10.10.1           .LOCL.         1     12   64    0     0.00    0.00  15937
+ * master (synced), # master (unsynced), + selected, - candidate, ~ configured
+
+HQ-GW# show running-config | include ntp
+ntp authentication-key 1 md5 CiscoKey123 7
+ntp server 10.10.10.1 key 1","NTP authentication key 1 is defined but missing 'ntp trusted-key 1' and 'ntp authenticate' commands"
+"NET-029","Administrator cannot establish SSH connection to Switch management interface","Access Switch VTY line remote administration","Security/SSH","High","SW-Access# show run | section line vty
+line vty 0 4
+ password 7 0822455D0A16
+ login
+ transport input telnet
+line vty 5 15
+ login
+ transport input none
+
+SW-Access# show ip ssh
+SSH Disabled - version 1.99","VTY lines 0-4 are configured for 'transport input telnet' only; SSH transport is not permitted ('transport input ssh' missing)"
+"NET-030","All VLAN 10 and VLAN 20 users lost connectivity simultaneously to default gateway","Core Router-on-a-Stick physical trunk interface","Inter-VLAN Routing","Critical","CoreRouter# show ip interface brief
+Interface                  IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0         unassigned      YES unset  administratively down down
+GigabitEthernet0/0.10      192.168.10.1    YES manual administratively down down
+GigabitEthernet0/0.20      192.168.20.1    YES manual administratively down down
+GigabitEthernet0/0.30      192.168.30.1    YES manual administratively down down
+
+CoreRouter# show run interface GigabitEthernet0/0
+interface GigabitEthernet0/0
+ no ip address
+ shutdown
+!","Physical parent interface GigabitEthernet0/0 is administratively down, cascading shutdown to all child sub-interfaces"
