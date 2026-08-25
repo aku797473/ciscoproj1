@@ -1,0 +1,33 @@
+# Virtual Environment (NEVER commit this - very large)
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Compiled files
+*.pyc
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
